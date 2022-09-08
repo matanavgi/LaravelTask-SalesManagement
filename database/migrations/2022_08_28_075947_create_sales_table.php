@@ -15,12 +15,12 @@ class CreateSalesTable extends Migration
     {
         Schema::create('sales', function (Blueprint $table) {
             $table->id();
+            $table->string('product_name');
+            $table->string('currency',3);
+            $table->decimal('sale_price', 10, 2);
+            $table->string('payme_sale_code');
+            $table->string('sale_url');
             $table->timestamps();
-            $table-> string('payme_sale_code');
-            $table-> string('sale_url');
-            $table-> decimal('sale_price',10,2);
-            $table-> string('currency');
-            $table-> string('product_name');
         });
     }
 

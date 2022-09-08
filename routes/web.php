@@ -14,11 +14,11 @@ use App\Http\Controllers\SaleController;
 |
 */
 
-Route::get('/', function () {
+Route::get("/", function () {
     return redirect("/sales");
 });
 
-Route::resource('sales',SaleController::class)
-    ->only(["index", "store","create","destroy","update"])
+Route::resource("sales", SaleController::class)
+    ->only(["index", "store", "create", "destroy", "update"])
     ->middleware("web");
 

@@ -3,60 +3,109 @@
 namespace Tests\Feature;
 
 use App\Models\Sale;
-use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class FeatureSaleTest extends TestCase
 {
 
     /**
-     * Test for create and delete new sale
+     * Test sale creation
      */
-    public function test_sale_create_and_delete_db()
+    public function test_sale_create()
     {
-        /*
-         * Call the API for additional seller data
-         * */
-        $apiRes = Http::post(config("sellerData.generate_sale_api"), [
-            "seller_payme_id" => config("sellerData.seller_payme_id"), // Use this static ID
-            "sale_price" => 12345,  // From input. Price is in cents
-            "currency" => "ILS", // From input
-            "product_name" => "Shirt", // From input
-            "installments" => config("sellerData.installments"), // Constant value
-            "language" => config("sellerData.language") // Constant value
-        ]);
-        $saleUrl = $apiRes->json("sale_url");
+        // Make Sale model without persisting it to the DB
+        $sale = Sale::factory()->make();
 
-        // Assert that the API call succeed.
-        $this->assertTrue($apiRes->json("status_code") == 0);
+        // Run the Store function from the Sales Controller
+        $this->post("/sales", [
+            "price"       => $sale->sale_price,
+            "currency"    => $sale->currency,
+            "productName" => $sale->product_name
+        ])
+            ->assertOk()
+            ->assertViewIs("sales.create");
+    }
 
-        $response = $this->followingRedirects()
-            ->get('/sales/create', ['saleUrl' => $saleUrl])
-            ->assertOk();
+    /**
+     * Test sale creation with missing parameters.
+     */
+    public function test_sale_create_missing_params()
+    {
+        // Make Sale object without persisting it to the DB
+        $sale = Sale::factory()->make();
 
-        /*
-         * Post new sale to DB
-         * */
-        $sale = new Sale();
-        $sale->payme_sale_code = $apiRes->json("payme_sale_code");
-        $sale->sale_url = $apiRes->json("sale_url");
-        $sale->sale_price = 12345;
-        $sale->currency = "ILS";
-        $sale->product_name = "Shirt";
+        // Run the Store function in the Sales Controller
+        $this->post("/sales", [
+            "price"    => $sale->sale_price,
+            "currency" => $sale->currency
+        ])
+            ->assertSessionHasErrors()
+            ->assertStatus(302);
+    }
 
-        $sale->save();
+    /**
+     * Test sale creation with missing parameters.
+     */
+    public function test_sale_create_wrong_currency_value()
+    {
+        // Make Sale object without persisting it to the DB
+        $sale = Sale::factory()->make();
+
+        // Run the Store function in the Sales Controller
+        $this->post("/sales", [
+            "price"       => $sale->sale_price,
+            "currency"    => "BHT",
+            "productName" => $sale->product_name
+        ])
+            ->assertSessionHasErrors()
+            ->assertStatus(302);
+
+    }
+
+    /**
+     * Test sale model saved into DB
+     */
+    public function test_sale_db_creation_and_deletion()
+    {
+        // Create Sale model and save it into DB
+        $sale = Sale::factory()->create();
 
         // Assert that sale object inserted to DB
         $this->assertDatabaseHas("sales", [
-            "payme_sale_code" => $apiRes->json("payme_sale_code")
+            "payme_sale_code" => $sale->payme_sale_code
         ]);
 
         // Delete last inserted sale
-        $this->delete("/sales/".$apiRes->json("payme_sale_code"));
+        $this->delete("/sales/" . $sale->payme_sale_code);
 
         // Assert that sale record deleted
         $this->assertDatabaseMissing("sales", [
-            "payme_sale_code" => $apiRes->json("payme_sale_code")
+            "payme_sale_code" => $sale->payme_sale_code
         ]);
+
     }
+
+    /**
+     * Test sale model been updated
+     */
+    public function test_sale_update()
+    {
+        // Get the last inserted Sale from DB.
+        $sale = Sale::query()->get()->last();
+
+        // Run the Store function in the Sales Controller
+        $this->put("/sales/" . $sale->payme_sale_code, [
+            "price"       => 1234,
+            "currency"    => "EUR",
+            "productName" => "Product Update"
+        ])->assertOk();
+
+        // Get the last inserted Sale from DB.
+        $updatedSale = Sale::query()->get()->first();
+
+        // Assert that last Sale model been updated
+        $this->assertNotEquals($sale->product_name, $updatedSale->product_name);
+
+    }
+
 }
